@@ -13,7 +13,7 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 # Free model on OpenRouter (no cost). You can swap this for any model slug
 # from https://openrouter.ai/models
-AI_MODEL = "meta-llama/llama-3.1-8b-instruct:free"
+AI_MODEL = "nvidia/nemotron-3-ultra-550b-a55b:free"
 
 # ----- Database -----
 DB_NAME = "expenses.db"
