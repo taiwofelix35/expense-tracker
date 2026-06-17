@@ -10,9 +10,12 @@ from config import OPENROUTER_API_KEY, OPENROUTER_URL, AI_MODEL, CATEGORIES
 
 
 def _call_openrouter(messages, max_tokens=300):
-    """Low-level helper to call the OpenRouter chat completions endpoint."""
+    """
+    Low-level helper to call the OpenRouter chat completions endpoint.
+    Returns a tuple: (result_text_or_None, error_message_or_None)
+    """
     if not OPENROUTER_API_KEY:
-        return None
+        return None, "OPENROUTER_API_KEY is empty or missing in this environment."
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -28,10 +31,17 @@ def _call_openrouter(messages, max_tokens=300):
         response = requests.post(OPENROUTER_URL, headers=headers, json=payload, timeout=30)
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"].strip()
+        return data["choices"][0]["message"]["content"].strip(), None
+    except requests.exceptions.HTTPError as e:
+        # Try to pull OpenRouter's own error message out of the response body
+        detail = ""
+        try:
+            detail = e.response.json().get("error", {}).get("message", "")
+        except Exception:
+            detail = e.response.text[:200] if e.response is not None else ""
+        return None, f"HTTP {e.response.status_code if e.response is not None else '?'} - {detail}"
     except Exception as e:
-        print(f"OpenRouter API error: {e}")
-        return None
+        return None, str(e)
 
 
 def categorize_expense(description):
@@ -55,7 +65,7 @@ def categorize_expense(description):
         {"role": "user", "content": f"Expense description: {description}"},
     ]
 
-    result = _call_openrouter(messages, max_tokens=20)
+    result, error = _call_openrouter(messages, max_tokens=20)
 
     if result:
         # Match the AI's reply against known categories (case-insensitive)
@@ -100,7 +110,7 @@ def generate_insights(expenses, budgets):
         {"role": "user", "content": json.dumps(summary_data)},
     ]
 
-    result = _call_openrouter(messages, max_tokens=250)
+    result, error = _call_openrouter(messages, max_tokens=250)
 
     if result:
         return result
@@ -111,5 +121,5 @@ def generate_insights(expenses, budgets):
         f"You spent a total of {total:.2f} this month. "
         f"Your top spending category was {top_category} "
         f"({by_category[top_category]:.2f}). "
-        f"(AI insights unavailable right now — check your API key/connection.)"
+        f"(AI insights unavailable right now — {error or 'unknown error'})"
     )
